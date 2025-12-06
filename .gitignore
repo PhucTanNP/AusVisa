@@ -1,0 +1,53 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+.env
+*.pyc
+
+# Node
+node_modules/
+.next/
+out/
+.env.local
+.env.production
+.turbo/
+package-lock.json
+pnpm-lock.yaml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+backend/ausvisa.db
+
+# Data
+backend/data/*.csv
+backend/cypher_queries.cypher
+
+# Build
+dist/
+build/
+
+# Gemini artifacts (local only)
+.gemini/
+
+# Sensitive files
+*.key
+*.pem
+*.cert
