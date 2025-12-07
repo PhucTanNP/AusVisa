@@ -57,7 +57,17 @@ async def detect_intent(user_query: str, system_prompt: str) -> Dict[str, Any]:
             "query_type": "greeting"
         }
 
+    # Force re-configure to ensure key is active in this thread/process
+    genai.configure(api_key=GOOGLE_API_KEY)
     model = genai.GenerativeModel(model_name=GEMINI_MODEL)
+    
+    # --- Token Counting (Estimate) ---
+    try:
+        count = await model.count_tokens_async(prompt)
+        print(f"📊 Intent Tokens: {count.total_tokens}")
+    except:
+        pass
+    # ---------------------------------
     
     # Optimized prompt - shorter and more direct
     prompt = f"""
@@ -78,6 +88,7 @@ async def detect_intent(user_query: str, system_prompt: str) -> Dict[str, Any]:
         # Use native async method
         response = await model.generate_content_async(prompt)
         text = response.text.strip()
+        
         # Clean up json markdown code blocks if present
         if text.startswith("```json"):
             text = text[7:]
@@ -85,6 +96,15 @@ async def detect_intent(user_query: str, system_prompt: str) -> Dict[str, Any]:
             text = text[:-3]
         return json.loads(text.strip())
     except Exception as e:
+        error_str = str(e)
+        print(f"❌ GEMINI ERROR DETAILS: {error_str}")
+        if "429" in error_str or "quota" in error_str.lower() or "ResourceExhausted" in error_str:
+            print("⚠️ Google API Quota Exceeded (Confirmed)")
+            return {
+                "intent": "QUOTA_ERROR",
+                "entities": {},
+                "query_type": "quota_error"
+            }
         print(f"Intent detection error: {e}")
         return {
             "intent": "STUDY",
@@ -131,10 +151,20 @@ async def format_response(user_query: str, query_results: List[Dict[str, Any]], 
     User: "{user_query}"
     Data: {json.dumps(query_results[:5], ensure_ascii=False)} # Limit context size
     
-    Trả lời ngắn gọn, tự nhiên, format đẹp. Dùng emoji.
+    Hãy trả lời thật sinh động và bắt mắt:
+    1. BẮT BUỘC dùng biểu tượng (emoji) cho TẤT CẢ các tiêu đề và ý chính.
+    2. Ví dụ: 🎓 Du học, 🛂 Visa, 💰 Chi phí, 📅 Thời gian, ✅ Điều kiện, 🏫 Trường học.
+    3. Trình bày dạng danh sách (bullet points) dễ đọc.
     """
     
     try:
+        # Count tokens before generating
+        token_count = await model.count_tokens_async(prompt)
+        print(f"\n📊 TOKEN USAGE ESTIMATE:")
+        print(f"   - Input Tokens: {token_count.total_tokens}")
+        print(f"   - Est. Cost (Free Tier): 0$")
+        print(f"   - Remaining Requests (Daily Limit ~1500): Check Google Console\n")
+
         response = await model.generate_content_async(prompt)
         return response.text
     except Exception as e:
@@ -155,6 +185,13 @@ async def chatbot_response(user_query: str, system_prompt: str) -> Dict[str, Any
             "intent": "GREETING",
             "query_results": []
         }
+
+    if analysis.get("intent") == "QUOTA_ERROR":
+         return {
+            "response": "⚠️ Hệ thống đang quá tải (Google API Quota Exceeded). Vui lòng thử lại sau vài phút hoặc liên hệ quản trị viên.",
+            "intent": "ERROR",
+            "query_results": []
+        }
     
     # Step 2: Execute query
     query_results = await execute_query(
@@ -170,7 +207,11 @@ async def chatbot_response(user_query: str, system_prompt: str) -> Dict[str, Any
         model = genai.GenerativeModel(model_name=GEMINI_MODEL)
         try:
             # Short fallback prompt
-            prompt = f"User: {user_query}\nTrả lời dựa trên kiến thức chung về visa/du học Úc. Ngắn gọn."
+            prompt = f"""
+            User: {user_query}
+            Trả lời dựa trên kiến thức chung về visa/du học Úc. 
+            BẮT BUỘC dùng emoji cho các ý chính (🎓, 🛂, 💰...). Trình bày đẹp.
+            """
             fallback_response = await model.generate_content_async(prompt)
             response = fallback_response.text
         except Exception as e:
@@ -227,12 +268,16 @@ async def chatbot_response_stream(user_query: str, system_prompt: str) -> AsyncG
         {system_prompt}
         User: "{user_query}"
         Data: {json.dumps(query_results[:5], ensure_ascii=False)}
-        Trả lời ngắn gọn, tự nhiên, format đẹp. Dùng emoji.
+        
+        Hãy trả lời thật sinh động và bắt mắt:
+        1. BẮT BUỘC dùng biểu tượng (emoji) cho TẤT CẢ các tiêu đề và ý chính.
+        2. Ví dụ: 🎓 Du học, 🛂 Visa, 💰 Chi phí, 📅 Thời gian, ✅ Điều kiện, 🏫 Trường học.
+        3. Trình bày dạng danh sách (bullet points) dễ đọc.
         """
-    else:
         prompt = f"""
         User: "{user_query}"
-        Trả lời dựa trên kiến thức chung về visa/du học Úc. Ngắn gọn.
+        Trả lời dựa trên kiến thức chung về visa/du học Úc.
+        BẮT BUỘC dùng emoji cho các ý chính (🎓, 🛂, 💰...). Trình bày đẹp.
         """
     
     try:
@@ -249,6 +294,18 @@ async def chatbot_response_stream(user_query: str, system_prompt: str) -> AsyncG
         _set_cache(cache_key, full_response)
         
     except Exception as e:
-        print(f"Streaming error: {e}")
+        import traceback
+        # Write to file instead of print for debugging
+        # Write to file instead of print for debugging
+        if "429" in str(e) or "quota" in str(e).lower():
+             yield "⚠️ Hệ thống đang quá tải (Google API Quota Exceeded). Vui lòng thử lại sau."
+             return
+
+        with open("streaming_error.log", "a", encoding="utf-8") as f:
+            f.write(f"\n{'='*60}\n")
+            f.write(f"Streaming error at: {datetime.now()}\n")
+            f.write(f"Error: {e}\n")
+            f.write(f"Traceback:\n{traceback.format_exc()}\n")
+        
         error_msg = "Xin lỗi, tôi gặp lỗi khi xử lý câu hỏi của bạn. Vui lòng thử lại."
         yield error_msg

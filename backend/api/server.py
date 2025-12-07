@@ -84,6 +84,23 @@ def health():
     """
     return {"status": "ok"}
 
+@app.get("/debug-config")
+def debug_config():
+    import config
+    import os
+    # Reload config to be super sure we get current state of module
+    import importlib
+    importlib.reload(config)
+    
+    key = config.GOOGLE_API_KEY
+    masked = key[:5] + "..." + key[-5:] if key and len(key) > 10 else "None"
+    
+    return {
+        "loaded_key": masked,
+        "model": config.GEMINI_MODEL,
+        "env_file_key": os.getenv("GOOGLE_API_KEY")[:5] + "..." if os.getenv("GOOGLE_API_KEY") else "None"
+    }
+
 # Text2Cypher endpoints commented out - not needed for chatbot
 # @app.get("/schema")
 # def schema():

@@ -2,9 +2,14 @@ from __future__ import annotations
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+if GOOGLE_API_KEY:
+    print(f"🔑 LOADED API KEY (Config): {GOOGLE_API_KEY[:5]}...{GOOGLE_API_KEY[-5:]}")
+else:
+    print("❌ NO API KEY FOUND IN CONFIG")
+
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
 # Chatbot optimization settings
