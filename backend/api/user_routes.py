@@ -7,7 +7,7 @@ from typing import Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Header
 
 from services.auth import create_access_token, decode_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from services.database import get_db
+from models.database import get_db
 from services.user_service import UserService
 from models.user import (
     UserCreate,
@@ -100,6 +100,13 @@ def login(credentials: LoginRequest, db: Any = Depends(get_db)) -> LoginResponse
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is disabled"
         )
+    
+    # Update last_login and session_count
+    from datetime import datetime
+    user.last_login = datetime.utcnow()
+    user.session_count = (user.session_count or 0) + 1
+    db.commit()
+    db.refresh(user)
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(

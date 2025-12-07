@@ -7,6 +7,10 @@ load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 
+# Chatbot optimization settings
+ENABLE_STREAMING = os.getenv("ENABLE_STREAMING", "true").lower() == "true"
+CACHE_TTL = int(os.getenv("CACHE_TTL", "300"))  # 5 minutes cache
+
 NEO4J_URI = os.getenv("NEO4J_URI")
 NEO4J_USER = os.getenv("NEO4J_USER")
 NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")

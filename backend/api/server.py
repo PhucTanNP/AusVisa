@@ -10,6 +10,8 @@ from pydantic import BaseModel
 # from services.database import init_db  # Not needed for chatbot
 # from .user_routes import router as user_router  # Not needed for chatbot (requires PostgreSQL)
 from .chatbot_routes import router as chatbot_router
+from .user_routes import router as user_router
+from .admin_routes import router as admin_router
 
 class Text2CypherRequest(BaseModel):
     """_summary_
@@ -31,7 +33,13 @@ class Text2CypherResponse(BaseModel):
     params: Dict[str, Any]
     rows: Optional[List[Dict[str, Any]]] = None
 
-app = FastAPI(title="AusVisa API", version="1.0.0")
+app = FastAPI(
+    title="AusVisa API",
+    description="API for Australian Visa Chatbot",
+    version="1.0.0"
+)
+
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -40,28 +48,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include user routes (commented out - requires PostgreSQL)
-# app.include_router(user_router)
+# Include user routes
+app.include_router(user_router)
 
 # Include chatbot routes
 app.include_router(chatbot_router)
 
-@app.on_event("startup")
-def _startup() -> None:
-    # Initialize database tables (commented out - not needed for chatbot)
-    # init_db()
-    pass
-    
-    # Build once; reuse between requests
-    # app.state.flow = build_flow()
-    # app.state.driver = connect_neo4j()
-    # app.state.schema_text = read_schema_snapshot(app.state.driver)
+# Include admin routes
+app.include_router(admin_router)
 
-@app.on_event("shutdown")
-def _shutdown() -> None:
-    driver = getattr(app.state, "driver", None)
-    if driver:
-        driver.close()
+# Deprecated event handlers - commented out to avoid AssertionError
+# @app.on_event("startup")
+# def _startup() -> None:
+#     # Initialize database tables (commented out - not needed for chatbot)
+#     # init_db()
+#     pass
+    
+#     # Build once; reuse between requests
+#     # app.state.flow = build_flow()
+#     # app.state.driver = connect_neo4j()
+#     # app.state.schema_text = read_schema_snapshot(app.state.driver)
+
+# @app.on_event("shutdown")
+# def _shutdown() -> None:
+#     driver = getattr(app.state, "driver", None)
+#     if driver:
+#         driver.close()
 
 @app.get("/health")
 def health():

@@ -3,12 +3,14 @@ Chatbot API routes for AusVisa chatbot
 """
 from __future__ import annotations
 import os
+import json
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from services.chatbot_service import chatbot_response
+from services.chatbot_service import chatbot_response, chatbot_response_stream
 from services.neo4j_exec import connect_neo4j
 from config import NEO4J_DATABASE
 
@@ -58,7 +60,7 @@ async def chat_query(req: ChatRequest):
         else:
             system_prompt = "You are a helpful AI assistant for Australian visa, study, and settlement information."
         
-        result = chatbot_response(req.question, system_prompt)
+        result = await chatbot_response(req.question, system_prompt)
         
         return ChatResponse(
             response=result["response"],
@@ -66,6 +68,59 @@ async def chat_query(req: ChatRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chatbot error: {str(e)}")
+
+
+@router.post("/query-stream")
+async def chat_query_stream(req: ChatRequest):
+    """
+    Stream chatbot response using Server-Sent Events (SSE)
+    
+    Args:
+        req: Chat request with user question
+        
+    Returns:
+        StreamingResponse with real-time chunks
+    """
+    try:
+        # Load system prompt
+        system_prompt_path = os.path.join(
+            os.path.dirname(os.path.dirname(__file__)), 
+            "chatbot", 
+            "system_prompt.txt"
+        )
+        
+        if os.path.exists(system_prompt_path):
+            with open(system_prompt_path, "r", encoding="utf-8") as f:
+                system_prompt = f.read()
+        else:
+            system_prompt = "You are a helpful AI assistant for Australian visa, study, and settlement information."
+        
+        async def event_generator():
+            """Generate SSE events"""
+            try:
+                async for chunk in chatbot_response_stream(req.question, system_prompt):
+                    # Format as SSE with JSON payload to preserve newlines
+                    payload = json.dumps({"text": chunk})
+                    yield f"data: {payload}\n\n"
+                
+                # Send completion signal
+                yield "data: [DONE]\n\n"
+            except Exception as e:
+                print(f"Stream generation error: {e}")
+                yield f"data: Xin lỗi, đã có lỗi xảy ra.\n\n"
+                yield "data: [DONE]\n\n"
+        
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"  # Disable nginx buffering
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Streaming error: {str(e)}")
 
 
 @router.get("/stats", response_model=StatsResponse)

@@ -1,285 +1,335 @@
 ---
-description: Complete workflow to run AusVisa chatbot system
+description: Hướng dẫn khởi động lại toàn bộ hệ thống AusVisa
 ---
 
-# Workflow: Run AusVisa Chatbot System
+# 🚀 Workflow: Khởi động lại hệ thống AusVisa
 
-## Prerequisites Check
+## 📋 Kiểm tra trước khi bắt đầu
 
-- [ ] Python 3.13+ installed
-- [ ] Node.js 18+ installed  
-- [ ] Neo4j Aura account created
-- [ ] Google Gemini API key obtained
-- [ ] CSV data files available
+- [ ] Docker Desktop đang chạy
+- [ ] Python 3.10+ đã cài đặt
+- [ ] Node.js 18+ đã cài đặt
+- [ ] Neo4j đang chạy (local hoặc Aura)
+- [ ] Google API Key đã có
 
 ---
 
-## Step 1: Configure Environment
+## Bước 1: Kill tất cả processes cũ (QUAN TRỌNG!)
 
-### Backend (.env)
+### Kiểm tra processes đang chạy
 
 ```bash
-cd d:\Source\CRAWL KG\AKE_BE
-
-# Copy example file
-cp .env.example .env
-
-# Edit .env and fill in:
-# GOOGLE_API_KEY=your-gemini-api-key
-# NEO4J_URI=neo4j+s://xxxxx.databases.neo4j.io
-# NEO4J_USER=neo4j
-# NEO4J_PASSWORD=your-password
-# NEO4J_DATABASE=neo4j
-# GEMINI_MODEL=gemini-2.5-flash
+// turbo
+netstat -ano | findstr :8000
 ```
 
-### Frontend (.env.local)
+### Kill backend processes nếu có
+
+Nếu thấy processes đang chạy trên port 8000, kill chúng:
 
 ```bash
-cd d:\Source\CRAWL KG\AKE-UI
-
-# File already created with:
-# NEXT_PUBLIC_API_URL=http://localhost:8000
+# Thay <PID> bằng số process ID thực tế
+taskkill /PID <PID> /F
 ```
+
+**Hoặc:** Bấm `Ctrl+C` trong tất cả terminals đang chạy uvicorn
+
+### Kiểm tra frontend processes
+
+```bash
+// turbo
+netstat -ano | findstr :3000
+```
+
+Kill nếu cần thiết.
 
 ---
 
-## Step 2: Install Dependencies
-
-### Backend
+## Bước 2: Khởi động Docker Services
 
 ```bash
-cd d:\Source\CRAWL KG\AKE_BE
+cd "d:\Source\CRAWL KG\AusVisa\backend"
 
 // turbo
-python -m pip install fastapi uvicorn neo4j pandas google-generativeai python-dotenv pydantic langgraph langchain-google-genai passlib bcrypt pyjwt sqlalchemy
+docker-compose up -d
 ```
 
-### Frontend
+**Chờ đợi:** PostgreSQL và pgAdmin khởi động (khoảng 10-15 giây)
+
+### Kiểm tra services
 
 ```bash
-cd d:\Source\CRAWL KG\AKE-UI
-
 // turbo
-npm install --force
+docker-compose ps
 ```
+
+**Kết quả mong đợi:**
+- `visa_postgres` - UP (port 5433)
+- `visa_pgadmin` - UP (port 5050)
 
 ---
 
-## Step 3: Prepare Data
+## Bước 3: Khởi động Backend API
 
-### Copy CSV Files
-
-Copy these 5 files to `d:\Source\CRAWL KG\AKE_BE\data\`:
-
-1. `About_Final_Neo4j.csv`
-2. `Eligibility_Final_Neo4j.csv`
-3. `Step_Final_Neo4j.csv`
-4. `Settlement_All.csv`
-5. `Uni_Info_Program_Final.csv`
-
-### Import to Neo4j
+**Mở Terminal 1:**
 
 ```bash
-cd d:\Source\CRAWL KG\AKE_BE
+cd "d:\Source\CRAWL KG\AusVisa\backend"
+
+# Activate virtual environment (nếu có)
+source venv/Scripts/activate
 
 // turbo
-python scripts/run_all.py
+uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-**Expected output:**
+**Chờ thấy:**
 ```
-Starting data import...
-✓ Importing visa data...
-✓ Importing settlement data...
-✓ Importing study data...
-✓ Creating cross-relationships...
-Import complete!
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000
 ```
+
+**⚠️ GIỮ TERMINAL NÀY MỞ!**
+
+### Test backend
+
+**Mở terminal mới:**
+
+```bash
+// turbo
+curl http://localhost:8000/health
+```
+
+**Kết quả:** `{"status":"healthy"}` hoặc `{"status":"ok"}`
 
 ---
 
-## Step 4: Start Backend
+## Bước 4: Khởi động Frontend
+
+**Mở Terminal 2 (terminal mới):**
 
 ```bash
-cd d:\Source\CRAWL KG\AKE_BE
-
-// turbo
-python -m uvicorn api.server:app --reload --host 0.0.0.0 --port 8000
-```
-
-**Wait for:**
-```
-INFO: Application startup complete.
-INFO: Uvicorn running on http://0.0.0.0:8000
-```
-
-**Keep this terminal open!**
-
----
-
-## Step 5: Start Frontend
-
-**Open NEW terminal:**
-
-```bash
-cd d:\Source\CRAWL KG\AKE-UI
+cd "d:\Source\CRAWL KG\AusVisa\frontend"
 
 // turbo
 npm run dev
 ```
 
-**Wait for:**
+**Chờ thấy:**
 ```
 ✓ Ready in XXXms
 - Local: http://localhost:3000
 ```
 
-**Keep this terminal open!**
+**⚠️ GIỮ TERMINAL NÀY MỞ!**
 
 ---
 
-## Step 6: Test System
+## Bước 5: Test toàn bộ hệ thống
 
-### Browser Test
+### 5.1. Test Backend API
 
-1. Open: http://localhost:3000
-2. Click: "Trò chuyện với AI"
-3. Send message: "Xin chào"
-4. Verify response from chatbot
+Mở browser: http://localhost:8000/docs
 
-### API Test
+Bạn sẽ thấy Swagger UI với các endpoints:
+- `/health` - Health check
+- `/api/auth/register` - Đăng ký
+- `/api/auth/login` - Đăng nhập
+- `/api/chatbot/query` - Chat
+- `/api/admin/*` - Admin endpoints
 
-```bash
-// turbo
-curl -X POST "http://localhost:8000/api/chatbot/query" -H "Content-Type: application/json" -d "{\"question\": \"Hello\"}"
-```
+### 5.2. Test Frontend
 
-### Check Stats
+Mở browser: http://localhost:3000
 
-```bash
-// turbo
-curl http://localhost:8000/api/chatbot/stats
-```
+Bạn sẽ thấy trang chủ AusVisa
 
-**Expected:**
-```json
-{
-  "universities": XX,
-  "programs": XXX,
-  "visas": XX
-}
+### 5.3. Test Đăng ký User
+
+1. Vào: http://localhost:3000/register
+2. Nhập thông tin:
+   - Email: `test@example.com`
+   - Username: `testuser`
+   - Password: `test123`
+3. Click "Register"
+4. Nếu thành công → redirect về `/login`
+
+**Nếu lỗi:**
+- Mở DevTools (F12) → Console tab
+- Mở Network tab
+- Thử register lại
+- Kiểm tra error message
+
+### 5.4. Test Đăng nhập
+
+1. Vào: http://localhost:3000/login
+2. Nhập email và password vừa đăng ký
+3. Click "Login"
+4. Nếu thành công → redirect về `/chat`
+
+### 5.5. Test Chatbot
+
+1. Sau khi login, vào: http://localhost:3000/chat
+2. Gõ câu hỏi: "Xin chào"
+3. Chatbot sẽ trả lời
+
+**Test câu hỏi về visa:**
+- "Visa 189 là gì?"
+- "Điều kiện xin visa Úc?"
+- "Các loại visa Úc có những gì?"
+
+---
+
+## Bước 6: Truy cập pgAdmin (Optional)
+
+1. Mở: http://localhost:5050
+2. Login:
+   - Email: `admin@ausvisa.ai`
+   - Password: `admin123`
+3. Add Server (lần đầu):
+   - Name: `AusVisa DB`
+   - Host: `postgres` (hoặc `localhost`)
+   - Port: `5432` (internal) hoặc `5433` (external)
+   - Database: `visa_db`
+   - Username: `postgres`
+   - Password: `123456`
+
+### Xem users đã đăng ký
+
+```sql
+SELECT email, username, role, is_active, created_at 
+FROM users 
+ORDER BY created_at DESC;
 ```
 
 ---
 
-## Step 7: Monitor Logs
+## 🛑 Dừng hệ thống
 
-### Backend Logs (Terminal 1)
+### Dừng Frontend
+Trong Terminal 2: Bấm `Ctrl+C`
 
-Watch for:
-- ✅ `POST /api/chatbot/query` - Successful requests
-- ❌ `500 Internal Server Error` - Check error details
+### Dừng Backend
+Trong Terminal 1: Bấm `Ctrl+C`
 
-### Frontend Logs (Terminal 2)
+### Dừng Docker (Optional)
 
-Watch for:
-- ✅ Page compilations
-- ❌ Build errors
+```bash
+cd "d:\Source\CRAWL KG\AusVisa\backend"
+docker-compose down
+```
 
-### Browser Console (F12)
+**Lưu ý:** Dừng Docker sẽ mất kết nối database nhưng data vẫn còn.
 
-Check for:
-- Network requests to backend
-- API responses
-- JavaScript errors
+**Xóa hết data (CẢNH BÁO!):**
+```bash
+docker-compose down -v
+```
 
 ---
 
-## Troubleshooting
+## 🔄 Khởi động lại nhanh (Quick Restart)
 
-### Backend won't start
-
-**Error:** `ModuleNotFoundError`
-```bash
-python -m pip install <missing-module>
-```
-
-**Error:** `Neo4j connection failed`
-- Check NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD in .env
-- Verify Neo4j Aura is running
-
-### Frontend won't start
-
-**Error:** `npm install` fails
-```bash
-npm install --force
-```
-
-**Error:** `Module not found`
-```bash
-rm -rf node_modules package-lock.json
-npm install --force
-```
-
-### Chatbot returns errors
-
-**Error:** `500 Internal Server Error`
-- Check backend logs for details
-- Verify GOOGLE_API_KEY is valid
-- Check Neo4j connection
-
-**Error:** `No data returned`
-- Verify data import completed
-- Check Neo4j has data: `curl http://localhost:8000/api/chatbot/stats`
-
----
-
-## Stop System
-
-### Stop Backend
-In Terminal 1: Press `Ctrl+C`
-
-### Stop Frontend
-In Terminal 2: Press `Ctrl+C`
-
----
-
-## Quick Restart
+Nếu đã chạy ít nhất 1 lần và muốn khởi động lại:
 
 ```bash
 # Terminal 1 - Backend
-cd d:\Source\CRAWL KG\AKE_BE
-python -m uvicorn api.server:app --reload --host 0.0.0.0 --port 8000
+cd "d:\Source\CRAWL KG\AusVisa\backend"
+docker-compose up -d
+uvicorn api.server:app --host 0.0.0.0 --port 8000 --reload
 
-# Terminal 2 - Frontend
-cd d:\Source\CRAWL KG\AKE-UI
+# Terminal 2 - Frontend  
+cd "d:\Source\CRAWL KG\AusVisa\frontend"
 npm run dev
 ```
 
 ---
 
-## URLs Reference
+## 🔍 Troubleshooting
 
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Frontend | http://localhost:3000 | Main UI |
-| Chat Page | http://localhost:3000/chat | Chatbot interface |
-| Backend API | http://localhost:8000 | REST API |
-| API Docs | http://localhost:8000/docs | Swagger UI |
-| Health Check | http://localhost:8000/health | Status check |
+### Lỗi: Port 8000 đã được sử dụng
+
+```bash
+# Tìm process
+netstat -ano | findstr :8000
+
+# Kill process
+taskkill /PID <PID> /F
+```
+
+### Lỗi: Cannot connect to database
+
+```bash
+# Kiểm tra Docker
+docker-compose ps
+
+# Xem logs
+docker-compose logs postgres
+
+# Restart
+docker-compose restart postgres
+```
+
+### Lỗi: CORS blocked
+
+**Nguyên nhân:** Có nhiều backend processes chạy cùng lúc
+
+**Giải pháp:**
+1. Kill tất cả processes trên port 8000
+2. Chỉ chạy 1 backend duy nhất
+3. Hard refresh browser: `Ctrl+Shift+R`
+
+### Lỗi: Module not found (Python)
+
+```bash
+cd "d:\Source\CRAWL KG\AusVisa\backend"
+pip install -r requirements.txt
+```
+
+### Lỗi: npm packages not found
+
+```bash
+cd "d:\Source\CRAWL KG\AusVisa\frontend"
+rm -rf node_modules package-lock.json
+npm install
+```
+
+### Reset database hoàn toàn
+
+```bash
+cd "d:\Source\CRAWL KG\AusVisa\backend"
+docker-compose down -v
+docker-compose up -d
+python scripts/init_db.py
+```
 
 ---
 
-## Next Steps
+## 📚 URLs tham khảo
 
-After system is running:
-1. Test various chatbot queries
-2. Customize system prompt in `chatbot/system_prompt.txt`
-3. Add more Cypher query templates
-4. Enhance UI/UX
-5. Deploy to production
+| Service | URL | Mô tả |
+|---------|-----|-------|
+| Frontend | http://localhost:3000 | Trang chủ |
+| Register | http://localhost:3000/register | Đăng ký |
+| Login | http://localhost:3000/login | Đăng nhập |
+| Chat | http://localhost:3000/chat | Chatbot |
+| Admin | http://localhost:3000/admin | Admin panel |
+| Backend API | http://localhost:8000/docs | Swagger UI |
+| Health Check | http://localhost:8000/health | Kiểm tra backend |
+| pgAdmin | http://localhost:5050 | Quản lý database |
 
 ---
 
-**Workflow Complete!** 🎉
+## ✅ Checklist hoàn thành
+
+- [ ] Docker services đang chạy
+- [ ] Backend API đang chạy (port 8000)
+- [ ] Frontend đang chạy (port 3000)
+- [ ] Test health check thành công
+- [ ] Test đăng ký user thành công
+- [ ] Test đăng nhập thành công
+- [ ] Test chatbot thành công
+
+---
+
+**🎉 Hệ thống đã sẵn sàng!**

@@ -1,7 +1,7 @@
 """
 Database models for user authentication and chat history
 """
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Text, ForeignKey, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from datetime import datetime
@@ -9,12 +9,14 @@ import os
 
 Base = declarative_base()
 
-# Database file path
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'ausvisa.db')
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+# Database URL from environment variable or default to PostgreSQL
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:123456@localhost:5433/visa_db"
+)
 
 # Create engine
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -25,8 +27,14 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     username = Column(String(100), unique=True, nullable=False, index=True)
+    full_name = Column(String(255), nullable=True)
     password_hash = Column(String(255), nullable=False)
+    role = Column(String(50), default='user', nullable=False)  # admin, editor, reviewer, support, user
+    is_active = Column(Boolean, default=True, nullable=False)  # PostgreSQL Boolean
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login = Column(DateTime, nullable=True)
+    session_count = Column(Integer, default=0, nullable=False)
     
     # Relationships
     conversations = relationship("Conversation", back_populates="user", cascade="all, delete-orphan")
@@ -73,10 +81,11 @@ def get_db():
 def init_db():
     """Initialize database - create all tables"""
     Base.metadata.create_all(bind=engine)
-    print(f"Database initialized at {DB_PATH}")
+    print(f"Database initialized at {DATABASE_URL}")
 
 
 if __name__ == "__main__":
     # Create tables
     init_db()
     print("Database tables created successfully!")
+

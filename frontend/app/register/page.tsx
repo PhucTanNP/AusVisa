@@ -2,12 +2,17 @@
 
 import type React from "react"
 
-import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { ArrowRight, Lock, Mail, User } from "lucide-react"
 import Link from "next/link"
-import { Mail, Lock, User, ArrowRight } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { useState } from "react"
 
 export default function RegisterPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const fromAdmin = searchParams.get('from') === 'admin'
+
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -31,9 +36,46 @@ export default function RegisterPage() {
       alert("Mật khẩu không khớp")
       return
     }
+
+    if (formData.password.length < 8) {
+      alert("Mật khẩu phải có ít nhất 8 ký tự")
+      return
+    }
+
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-    setIsLoading(false)
+
+    try {
+      const response = await fetch('http://localhost:8000/api/users/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          username: formData.fullName || formData.email.split('@')[0],
+          password: formData.password,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.detail || 'Đăng ký thất bại')
+      }
+
+      if (fromAdmin) {
+        // If accessed from admin, show success and redirect to admin
+        alert('Tạo người dùng thành công!')
+        router.push('/admin')
+      } else {
+        // If normal registration, redirect to login
+        alert('Đăng ký thành công! Chuyển đến trang đăng nhập...')
+        router.push('/login')
+      }
+    } catch (error: any) {
+      alert(error.message || 'Có lỗi xảy ra, vui lòng thử lại')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (

@@ -7,8 +7,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
-from .models import User
-from .auth import hash_password, verify_password
+from models.database import User
+from services.auth import hash_password, verify_password
 from models.user import UserCreate, UserUpdate
 
 
@@ -29,7 +29,7 @@ class UserService:
             email=user.email,
             username=user.username,
             full_name=user.full_name,
-            hashed_password=hash_password(user.password),
+            password_hash=hash_password(user.password),
             is_active=True,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
@@ -60,7 +60,7 @@ class UserService:
         user = UserService.get_user_by_email(db, email)
         if not user:
             return None
-        if not verify_password(password, user.hashed_password):
+        if not verify_password(password, user.password_hash):
             return None
         return user
 
@@ -91,7 +91,7 @@ class UserService:
         if user_update.full_name:
             user.full_name = user_update.full_name
         if user_update.password:
-            user.hashed_password = hash_password(user_update.password)
+            user.password_hash = hash_password(user_update.password)
 
         user.updated_at = datetime.utcnow()
         db.add(user)
@@ -133,3 +133,57 @@ class UserService:
         db.commit()
         db.refresh(user)
         return user
+
+    @staticmethod
+    def get_all_users_with_stats(db: Session) -> list[User]:
+        """Get all users with statistics (for admin)"""
+        stmt = select(User)
+        result = db.execute(stmt).scalars().all()
+        return result
+
+    @staticmethod
+    def update_user_status(db: Session, user_id: int, is_active: bool) -> Optional[User]:
+        """Update user active status"""
+        user = db.get(User, user_id)
+        if not user:
+            return None
+        user.is_active = is_active  # PostgreSQL uses Boolean
+        user.updated_at = datetime.utcnow()
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+
+    @staticmethod
+    def update_user_role(db: Session, user_id: int, role: str) -> Optional[User]:
+        """Update user role"""
+        user = db.get(User, user_id)
+        if not user:
+            return None
+        user.role = role
+        user.updated_at = datetime.utcnow()
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+
+    @staticmethod
+    def get_user_stats(db: Session) -> dict:
+        """Get user statistics"""
+        stmt = select(User)
+        all_users = db.execute(stmt).scalars().all()
+        
+        total_users = len(all_users)
+        active_users = sum(1 for u in all_users if u.is_active)
+        # For now, we don't have pending status, so set to 0
+        pending_users = 0
+        suspended_users = sum(1 for u in all_users if not u.is_active)
+        
+        return {
+            "total_users": total_users,
+            "active_users": active_users,
+            "pending_users": pending_users,
+            "suspended_users": suspended_users
+        }
+
+

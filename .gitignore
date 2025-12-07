@@ -1,53 +1,76 @@
+# Environment files
+**/.env
+**/.env.local
+.env*
+!.env.example
+!.env.local.example
+
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 env/
 venv/
-*.egg-info/
-.env
-*.pyc
+ENV/
+env.bak/
+venv.bak/
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Node
 node_modules/
 .next/
 out/
-.env.local
-.env.production
 .turbo/
-package-lock.json
-pnpm-lock.yaml
+.vercel/
+*.tsbuildinfo
+next-env.d.ts
+
+# Database
+*.db
+*.sqlite
+**/postgres_data/
+**/pgadmin_data/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+.DS_Store
 
 # OS
-.DS_Store
 Thumbs.db
+.DS_Store
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-backend/ausvisa.db
-
-# Data
-backend/data/*.csv
-backend/cypher_queries.cypher
-
-# Build
-dist/
-build/
-
-# Gemini artifacts (local only)
-.gemini/
-
-# Sensitive files
-*.key
-*.pem
-*.cert
+# Temporary files
+*.tmp
+*.bak
+*.cache
