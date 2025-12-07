@@ -370,14 +370,6 @@ npm run dev
 # Frontend: http://localhost:3000
 # Backend: http://localhost:8000/docs
 # Admin: admin@ausvisa.ai / admin123
-```
 
----
-
-## 📄 License
-
-MIT License - Feel free to use for your projects!
-
----
 
 Enjoy your AusVisa Chatbot! 🚀🇦🇺
